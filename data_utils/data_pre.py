@@ -94,6 +94,8 @@ class data_pre():
         return: all the images will be renamed and resized
         """
         file_list = os.listdir(folder_path)
+        if len(file_list) == 0:
+            self.file_name.pop()  # if it is empty, make the pop of the stack, the empty folder won't make the for loop in the next lines
 
         for i in range(len(file_list)):
             if os.path.isdir(folder_path + '\\' + file_list[i]):
@@ -102,12 +104,11 @@ class data_pre():
             else:
                 old_name = folder_path + '\\' + file_list[i]
                 self.image_resize(old_name)  # resize the image
-                new_name = folder_path + '\\' + ''.join(self.file_name) + str(i) + '.jpg'
+                new_name = folder_path + '\\' + (self.file_name)[0] + '_' + (self.file_name)[1] + '_' + (self.file_name)[2] + '_' + str(i) + '.jpg'
+                # new_name = folder_path + '\\' + ''.join(self.file_name) + '_' + str(i) + '.jpg'
                 os.rename(old_name, new_name)  # change the name
 
-            if len(file_list) == 0:
-                self.file_name.pop()  # if it is empty
-            if i == (len(file_list) - 1):  # if it is the last image in the folder, self.filename stack should make the pop
+            if (i == (len(file_list) - 1)) and (len(self.file_name) != 0):  # if it is the last image in the folder, self.filename stack should make the pop
                 self.file_name.pop()
 
 
@@ -127,5 +128,5 @@ test.rand_choose(paths, paths + '_' + str(0.05), frac)"""
     test.rand_choose(paths, paths + '_' + str(0.05), frac)"""
 # path = r"H:\QFR_dataset_2\1_lower_limb\1_lower_limb_PUMCH\12_sunjinfang\sunjinfang-1\2017_12_4_11_25_49"
 # test.folder_rename(path, "I")
-folder_path = r"H:\QFR_dataset_5"
+folder_path = r"H:\QFR_dataset_7"
 test.folder_index(folder_path)
