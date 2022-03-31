@@ -182,7 +182,7 @@ class data_pre():
         for _renames in imlist:
             os.remove(path + "//" + _renames)
 
-    def folder_refine(self, path, per):
+    def sub_folder_refine(self, path, per):
         """
         This is the func based on the batch_refine_pro func in order to deal with the series of DSA images in the folder
         the difficulty is to deal with the name of the files, and try to local the series via the file names
@@ -228,8 +228,27 @@ class data_pre():
 
         for _list in im_lists:
             self.batch_refine_pro(path, _list, per)
-        for _list in iim_lists:
-            self.batch_refine_pro(path, _list, per)  # make the refine
+        if len(iim_lists) != 0:
+            for _list in iim_lists:
+                self.batch_refine_pro(path, _list, per)  # make the refine
+
+    def folder_refine(self, folder_path, per):
+        """
+        This is the func based on the sub_folder_refine func in order to deal with the series of DSA images in the folder
+        the difficulty is to deal with the name of the files, and try to local the series via the file names
+        :param path: the path of the root folder
+        :param per: the percentage of the series of images want to be left
+        :return: the best fitted projection DSA images will be left, others will be deleted
+        """
+        file_list = os.listdir(folder_path)
+        if len(file_list) == 0:
+            pass
+        for _file in file_list:
+            if os.path.isdir(folder_path + '\\' + _file):
+                self.folder_refine(folder_path + '\\' + _file, per)  # make the recursion
+            else:
+                self.sub_folder_refine(folder_path, per)
+                break  # write the break, or the sub_folder_refine will be operated more times
 
 
 test = data_pre()
@@ -248,8 +267,9 @@ test.rand_choose(paths, paths + '_' + str(0.05), frac)"""
     test.rand_choose(paths, paths + '_' + str(0.05), frac)"""
 # path = r"H:\QFR_dataset_2\1_lower_limb\1_lower_limb_PUMCH\12_sunjinfang\sunjinfang-1\2017_12_4_11_25_49"
 # test.folder_rename(path, "I")
-folder_path = r"H:\QFR_dataset_7"
+folder_path = r"H:\QFR_dataset_9"
 path = r'F:\CASIA\codes\data_utils\4_lilianwei_1'
+
 im_list = ['IMG-0009-00001.jpg',
            'IMG-0009-00002.jpg',
            'IMG-0009-00003.jpg',
@@ -268,4 +288,5 @@ im_list = ['IMG-0009-00001.jpg',
            'IMG-0009-00016.jpg']
 # test.batch_refine_pro(path, im_list, 0.2)
 # test.folder_index(folder_path)
-test.folder_refine(path, 0.1)
+# test.sub_folder_refine(path, 0.1)
+test.folder_refine(folder_path, 0.1)
