@@ -4,6 +4,7 @@ import os
 import random
 import matplotlib.pyplot as plt
 from random import sample
+import shutil
 from skimage.measure import compare_psnr
 
 
@@ -115,17 +116,6 @@ class data_pre():
                     len(self.file_name) != 0):  # if it is the last image in the folder, self.filename stack should make the pop
                 self.file_name.pop()
 
-    def image_compare(self, path, threshold):
-        """
-        This is used for compare the images, \
-            if two images are the same in more than the threshold percent (set as 30%), \
-            only one of them will be left
-        param path(str): the path of the sub folder
-                threshold (float): the threshold percentage
-        return: the images left
-        """
-        pass
-
     def batch_refine(self, path, imlist, per):
         """
         This is the func to find the best projection image in the series of DSA images
@@ -227,10 +217,12 @@ class data_pre():
                 im_lists.append(c)  # get the list of names of the 'IMG' images
 
         for _list in im_lists:
-            self.batch_refine_pro(path, _list, per)
+            if len(_list) != 0:
+                self.batch_refine_pro(path, _list, per)
         if len(iim_lists) != 0:
             for _list in iim_lists:
-                self.batch_refine_pro(path, _list, per)  # make the refine
+                if len(_list) != 0:
+                    self.batch_refine_pro(path, _list, per)  # make the refine
 
     def folder_refine(self, folder_path, per):
         """
@@ -247,8 +239,106 @@ class data_pre():
             if os.path.isdir(folder_path + '\\' + _file):
                 self.folder_refine(folder_path + '\\' + _file, per)  # make the recursion
             else:
-                self.sub_folder_refine(folder_path, per)
+                self.sub_folder_refine(folder_path, per)  # the func can be modified if needed
                 break  # write the break, or the sub_folder_refine will be operated more times
+
+    def image_compare(self, img1, img2):
+        """
+        This is the func that compares the two images im1,im2
+        :param img1, img2: the two compared images
+        :return: if the same, return True, else False
+        """
+        img2 = cv2.resize(img2, img1.shape, interpolation=cv2.INTER_LINEAR)
+        psnr = compare_psnr(img1, img2)
+        if psnr >= 30:  # psnr >30dB, two images are almost the same
+            return True
+        else:
+            return False
+
+    def folder_compare(self, img, path):
+        """
+        Compare the images in a folder with the image
+        :param path: folder path
+        :param img: image for comparing
+        :return: if found the same image in the folder, return true, else return false
+        """
+        file_list = os.listdir(path)
+        if len(file_list) != 0:
+            for _file in file_list:
+                im1 = cv2.imread(path + "//" + _file, flags=2)
+                _result = self.image_compare(img, im1)  # compare the image
+                if _result:
+                    return True
+        return False
+
+    def folders_compare(self, folder1, folder2):
+        """
+        Compare the images in two folders
+        :param folder1: the images in folder1
+        :param folder2: the images in folder2
+        :return: if the same, delete the same image in folder1
+        """
+        folder_list1 = os.listdir(folder1)
+        folder_list2 = os.listdir(folder2)
+        for i in range(len(folder_list1)):
+            _list = os.listdir(folder1 + "\\" + folder_list1[i])
+            for _patientName in _list:
+                num = 0
+                _imgs = os.listdir(folder1 + '\\' + folder_list1[i] + '\\' + _patientName)
+                for _img in _imgs:
+                    img = cv2.imread(folder1 + '\\' + folder_list1[i] + '\\' + _patientName + "\\" + _img, flags=2)
+                    if os.path.exists(folder2 + '\\' + folder_list2[i] + '\\' + _patientName):
+                        _result = self.folder_compare(img, folder2 + '\\' + folder_list2[i] + '\\' + _patientName)
+                        if _result:
+                            os.remove(folder1 + '\\' + folder_list1[i] + '\\' + _patientName + "\\" + _img)
+                            num += 1
+
+                print(_patientName + " " + "removed %d images" % (num))
+
+    def rename_folder(self, folder_path, dis_path):
+        """make the rename and move the images"""
+        file_list = os.listdir(folder_path)
+        if len(file_list) == 0:
+            self.file_name.pop()  # if it is empty, make the pop of the stack, the empty folder won't make the for loop in the next lines
+
+        for i in range(len(file_list)):
+            if os.path.isdir(folder_path + '\\' + file_list[i]):
+                self.file_name.append((file_list[i].split('_'))[0])  # self.filename is like the global variate
+                self.rename_folder(folder_path + '\\' + file_list[i], dis_path)  # make the recursion
+            else:
+                old_name = folder_path + '\\' + file_list[i]
+                self.image_resize(old_name, (512, 512))  # resize the image
+                new_name = folder_path + '\\' + (self.file_name)[0] + '_' + (self.file_name)[1] + '_' + \
+                           (self.file_name)[2] + '_' + str(i) + '.jpg'
+                # new_name = folder_path + '\\' + ''.join(self.file_name) + '_' + str(i) + '.jpg'
+                os.rename(old_name, new_name)  # change the name
+                # make the movement
+                if self.file_name[1] == '0':
+                    shutil.copy(new_name, os.path.join(dis_path, (self.file_name)[2]))
+                if self.file_name[1] == '1':
+                    shutil.copy(new_name, os.path.join(dis_path, str(10 + int((self.file_name)[2]))))
+                if self.file_name[1] == '2':
+                    shutil.copy(new_name, os.path.join(dis_path, str(24 + int((self.file_name)[2]))))
+            if (i == (len(file_list) - 1)) and (
+                    len(self.file_name) != 0):  # if it is the last image in the folder, self.filename stack should make the pop
+                self.file_name.pop()
+
+    def rename_folder_pro(self, folder_path):
+        """
+        rename the names of images in the new folder
+        :param folder_path: the root folder path
+        :return: names of images in the folder will be changed
+        """
+        folder_list = os.listdir(folder_path)
+        for i in range(len(folder_list)):
+            file_list = os.listdir(os.path.join(folder_path, folder_list[i]))
+            for j in range(len(file_list)):
+                old_name = os.path.join(folder_path, folder_list[i], file_list[j])
+                new_name = os.path.join(folder_path, folder_list[i], str(i).zfill(3) + '_' + str(j).zfill(4) + '.jpg')
+                os.rename(old_name, new_name)
+            print("patient %d renamed" % (i))
+
+    
 
 
 test = data_pre()
@@ -267,7 +357,7 @@ test.rand_choose(paths, paths + '_' + str(0.05), frac)"""
     test.rand_choose(paths, paths + '_' + str(0.05), frac)"""
 # path = r"H:\QFR_dataset_2\1_lower_limb\1_lower_limb_PUMCH\12_sunjinfang\sunjinfang-1\2017_12_4_11_25_49"
 # test.folder_rename(path, "I")
-folder_path = r"H:\QFR_dataset_9"
+folder_path = r"H:\QFR_dataset_popliteal"
 path = r'F:\CASIA\codes\data_utils\4_lilianwei_1'
 
 im_list = ['IMG-0009-00001.jpg',
@@ -289,4 +379,7 @@ im_list = ['IMG-0009-00001.jpg',
 # test.batch_refine_pro(path, im_list, 0.2)
 # test.folder_index(folder_path)
 # test.sub_folder_refine(path, 0.1)
-test.folder_refine(folder_path, 0.1)
+# test.folder_refine(folder_path, 0.1)
+# test.folders_compare(r"H:\QFR_dataset_v1.5\2_popliteal", r"H:\QFR_dataset_v1.5\0_upper_knee")
+# test.rename_folder(r"H:\QFR_dataset_v1.5", r"H:\QFR_dataset_v2.0")
+test.rename_folder_pro("H:\QFR_dataset_v2.5")
