@@ -15,6 +15,7 @@ class data_pre():
 
     def __init__(self):
         self.file_name = []  # for the func self.folder_index, a list plays the role of a stack in the func
+        self.remove_count = 0  # for the func self.remove_similarity, count how many images deleted
 
     def image_converse(self, path):
         """
@@ -23,7 +24,7 @@ class data_pre():
         param path: the path of the image, of the name of the image
         return:
         """
-        f = cv2.imread(path)
+        f = cv2.imread(path, flags=2)
         f = 255 - f  # make the converse
         cv2.imwrite(path, f,
                     [cv2.IMWRITE_JPEG_QUALITY,
@@ -255,6 +256,20 @@ class data_pre():
         else:
             return False
 
+    def image_compare_pro(self, img1, img2, threshold):
+        """
+        This is the func that compares the two images im1,im2
+        :param img1, img2: the two compared images
+        :param threshold: the threshold of judging the similarity of two images(larger than 30)
+        :return: if the same, return True, else False
+        """
+        img2 = cv2.resize(img2, img1.shape, interpolation=cv2.INTER_LINEAR)
+        psnr = compare_psnr(img1, img2)
+        if psnr >= threshold:  # psnr >30dB, two images are almost the same
+            return True
+        else:
+            return False
+
     def folder_compare(self, img, path):
         """
         Compare the images in a folder with the image
@@ -334,11 +349,35 @@ class data_pre():
             file_list = os.listdir(os.path.join(folder_path, folder_list[i]))
             for j in range(len(file_list)):
                 old_name = os.path.join(folder_path, folder_list[i], file_list[j])
-                new_name = os.path.join(folder_path, folder_list[i], str(i).zfill(3) + '_' + str(j).zfill(4) + '.jpg')
+                new_name = os.path.join(folder_path, folder_list[i],
+                                        folder_list[i].zfill(3) + '_' + str(j).zfill(4) + '.jpg')
                 os.rename(old_name, new_name)
-            print("patient %d renamed" % (i))
+            print("patient " + folder_list[i].zfill(3) + " renamed %d images" % (len(file_list)))
 
-    
+    def remove_similarity(self, folder_path, threshold):
+        """
+        remove similar images in the folder, compare the image with the left images, if the same, delete the image
+        :param folder_path: the path of the root folder, in the form of recursion
+        :param threshold: the threshold of judging the similarity of two images(larger than 30)
+        :return: delete the same images
+        """
+        file_list = os.listdir(folder_path)
+        if len(file_list) == 0:
+            pass
+        for i in range(len(file_list)):
+            if os.path.isdir(folder_path + '\\' + file_list[i]):
+                self.remove_similarity(folder_path + '\\' + file_list[i], threshold)  # make the recursion
+            else:
+                old_name = folder_path + '\\' + file_list[i]
+                im1 = cv2.imread(old_name, flags=2)
+                if len(file_list[(i + 1):]) != 0:  # compare the left images
+                    for _im in file_list[(i + 1):]:
+                        im2 = cv2.imread(folder_path + '\\' + _im, flags=2)
+                        if self.image_compare_pro(im1, im2, threshold):  # if the same
+                            os.remove(old_name)
+                            self.remove_count += 1
+                            print(str(self.remove_count) + " remove image: " + old_name)
+                            break
 
 
 test = data_pre()
@@ -382,4 +421,5 @@ im_list = ['IMG-0009-00001.jpg',
 # test.folder_refine(folder_path, 0.1)
 # test.folders_compare(r"H:\QFR_dataset_v1.5\2_popliteal", r"H:\QFR_dataset_v1.5\0_upper_knee")
 # test.rename_folder(r"H:\QFR_dataset_v1.5", r"H:\QFR_dataset_v2.0")
-test.rename_folder_pro("H:\QFR_dataset_v2.5")
+test.rename_folder_pro("H:\QFR_dataset_v5.5")
+# test.remove_similarity("H:\QFR_dataset_v5.0", 45)
